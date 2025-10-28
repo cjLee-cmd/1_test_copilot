@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neon Tetris</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-primary: #080819;
+      --bg-secondary: #14143a;
+      --accent: #4cdfff;
+      --accent-strong: #f54cff;
+      --text-main: #e8ebff;
+      --text-muted: #8690b3;
+      --glow-strong: 0 0 35px rgba(76, 223, 255, 0.65);
+      --glow-soft: 0 0 18px rgba(245, 76, 255, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 48px;
+      padding: 48px 32px;
+      background: radial-gradient(circle at top, rgba(28, 43, 122, 0.6), transparent 55%),
+        radial-gradient(circle at bottom, rgba(255, 83, 234, 0.35), transparent 45%),
+        linear-gradient(130deg, #080819 0%, #120e2e 38%, #080819 100%);
+      font-family: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-main);
+    }
+
+    .frame {
+      display: grid;
+      grid-template-columns: auto auto;
+      gap: 48px;
+      align-items: start;
+      backdrop-filter: blur(16px);
+    }
+
+    canvas {
+      border-radius: 18px;
+    }
+
+    #playfield {
+      width: 360px;
+      height: 720px;
+      background: linear-gradient(160deg, rgba(10, 12, 30, 0.9), rgba(34, 21, 62, 0.88));
+      border: 2px solid rgba(140, 148, 255, 0.18);
+      box-shadow: var(--glow-strong);
+    }
+
+    .hud {
+      display: grid;
+      gap: 24px;
+      width: 260px;
+      position: relative;
+    }
+
+    .hud::before {
+      content: '';
+      position: absolute;
+      inset: -32px -24px;
+      z-index: -1;
+      background: linear-gradient(180deg, rgba(72, 45, 210, 0.16), rgba(30, 135, 201, 0.08));
+      border-radius: 32px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: var(--glow-soft);
+      opacity: 0.8;
+    }
+
+    .hud-section {
+      padding: 18px 20px;
+      border-radius: 18px;
+      background: linear-gradient(160deg, rgba(9, 16, 42, 0.8), rgba(16, 8, 37, 0.68));
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: inset 0 0 20px rgba(86, 115, 255, 0.08);
+    }
+
+    .hud-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 14px;
+      letter-spacing: 0.24em;
+      color: var(--accent);
+      margin: 0 0 12px;
+      text-transform: uppercase;
+    }
+
+    .scoreboard {
+      display: grid;
+      gap: 8px;
+    }
+
+    .scoreboard span {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .scoreboard-label {
+      color: var(--text-muted);
+    }
+
+    #next-canvas,
+    #hold-canvas {
+      width: 160px;
+      height: 160px;
+      background: rgba(8, 12, 28, 0.8);
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      margin: 0 auto;
+      box-shadow: inset 0 0 24px rgba(76, 223, 255, 0.16);
+    }
+
+    .status {
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 15px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .controls {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    .combo-indicator {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 18px;
+      letter-spacing: 0.22em;
+      text-align: center;
+      color: var(--accent-strong);
+      text-transform: uppercase;
+      min-height: 24px;
+    }
+
+    .flash {
+      animation: flash 320ms ease-out;
+    }
+
+    @keyframes flash {
+      0% {
+        transform: scale(0.98);
+        opacity: 0.6;
+      }
+      60% {
+        transform: scale(1.04);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 960px) {
+      body {
+        flex-direction: column;
+        gap: 32px;
+      }
+      .frame {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="frame">
+    <canvas id="playfield" width="360" height="720"></canvas>
+
+    <aside class="hud">
+      <section class="hud-section">
+        <h2 class="hud-title">Score</h2>
+        <div class="scoreboard">
+          <span><span class="scoreboard-label">Score</span><span id="score">0</span></span>
+          <span><span class="scoreboard-label">Lines</span><span id="lines">0</span></span>
+          <span><span class="scoreboard-label">Level</span><span id="level">1</span></span>
+          <span><span class="scoreboard-label">Combo</span><span id="combo">0</span></span>
+          <span><span class="scoreboard-label">B2B</span><span id="back-to-back">-</span></span>
+        </div>
+      </section>
+
+      <section class="hud-section">
+        <h2 class="hud-title">Next Queue</h2>
+        <canvas id="next-canvas" width="160" height="160"></canvas>
+      </section>
+
+      <section class="hud-section">
+        <h2 class="hud-title">Hold</h2>
+        <canvas id="hold-canvas" width="160" height="160"></canvas>
+      </section>
+
+      <section class="hud-section">
+        <div class="combo-indicator" id="combo-indicator"></div>
+        <div class="status" id="status">Press Enter</div>
+      </section>
+
+      <section class="hud-section controls">
+        <strong style="color: var(--accent); font-size: 13px;">Controls</strong><br />
+        ← → : Move<br />
+        ↑ / Z / X : Rotate<br />
+        ↓ : Soft Drop<br />
+        Space : Hard Drop<br />
+        Shift / C : Hold<br />
+        Enter : Start / Restart
+      </section>
+    </aside>
+  </main>
+
+  <audio id="sfx-move" preload="auto" src="https://cdn.jsdelivr.net/gh/joshcomeau/boop/sounds/phaseJump1.ogg"></audio>
+  <audio id="sfx-lock" preload="auto" src="https://cdn.jsdelivr.net/gh/joshcomeau/boop/sounds/pop1.ogg"></audio>
+  <audio id="sfx-line" preload="auto" src="https://cdn.jsdelivr.net/gh/joshcomeau/boop/sounds/confirmation3.ogg"></audio>
+  <audio id="sfx-tetris" preload="auto" src="https://cdn.jsdelivr.net/gh/joshcomeau/boop/sounds/confirmation2.ogg"></audio>
+
+  <script>
+    const COLS = 10;
+    const VISIBLE_ROWS = 20;
+    const HIDDEN_ROWS = 2;
+    const ROWS = VISIBLE_ROWS + HIDDEN_ROWS;
+    const BLOCK_SIZE = 36;
+    const GRAVITY_MS = 1000;
+    const FAST_DROP_MS = 50;
+
+    const TETROMINOES = {
+      I: [
+        [0, 0, 0, 0],
+        [1, 1, 1, 1],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0]
+      ],
+      J: [
+        [1, 0, 0],
+        [1, 1, 1],
+        [0, 0, 0]
+      ],
+      L: [
+        [0, 0, 1],
+        [1, 1, 1],
+        [0, 0, 0]
+      ],
+      O: [
+        [1, 1],
+        [1, 1]
+      ],
+      S: [
+        [0, 1, 1],
+        [1, 1, 0],
+        [0, 0, 0]
+      ],
+      T: [
+        [0, 1, 0],
+        [1, 1, 1],
+        [0, 0, 0]
+      ],
+      Z: [
+        [1, 1, 0],
+        [0, 1, 1],
+        [0, 0, 0]
+      ]
+    };
+
+    const COLORS = {
+      I: '#78edff',
+      J: '#709bff',
+      L: '#ff9e5e',
+      O: '#f8ff8c',
+      S: '#6fffba',
+      T: '#d878ff',
+      Z: '#ff6f9b'
+    };
+
+    const playfield = document.getElementById('playfield');
+    const ctx = playfield.getContext('2d');
+
+    const nextCanvas = document.getElementById('next-canvas');
+    const nextCtx = nextCanvas.getContext('2d');
+
+    const holdCanvas = document.getElementById('hold-canvas');
+    const holdCtx = holdCanvas.getContext('2d');
+
+    const scoreEl = document.getElementById('score');
+    const linesEl = document.getElementById('lines');
+    const levelEl = document.getElementById('level');
+    const comboEl = document.getElementById('combo');
+    const b2bEl = document.getElementById('back-to-back');
+    const statusEl = document.getElementById('status');
+    const comboIndicator = document.getElementById('combo-indicator');
+
+    const moveSfx = document.getElementById('sfx-move');
+    const lockSfx = document.getElementById('sfx-lock');
+    const lineSfx = document.getElementById('sfx-line');
+    const tetrisSfx = document.getElementById('sfx-tetris');
+
+    let board;
+    let activePiece;
+    let nextQueue;
+    let holdPiece = null;
+    let canHold = true;
+    let dropInterval = GRAVITY_MS;
+    let dropCounter = 0;
+    let fastDrop = false;
+    let lastTime = 0;
+    let score = 0;
+    let lines = 0;
+    let level = 1;
+    let combo = 0;
+    let backToBack = false;
+    let isRunning = false;
+    let particles = [];
+
+    const KEY = {
+      LEFT: 'ArrowLeft',
+      RIGHT: 'ArrowRight',
+      DOWN: 'ArrowDown',
+      UP: 'ArrowUp',
+      Z: 'z',
+      X: 'x',
+      SPACE: ' ',
+      SHIFT: 'Shift',
+      C: 'c',
+      ENTER: 'Enter'
+    };
+
+    const SCORE_TABLE = {
+      1: 100,
+      2: 300,
+      3: 500,
+      4: 800
+    };
+
+    function createBoard() {
+      return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+    }
+
+    function rotate(matrix, dir) {
+      const size = matrix.length;
+      const result = Array.from({ length: size }, () => Array(size).fill(0));
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          result[x][size - 1 - y] = dir > 0 ? matrix[y][x] : matrix[size - 1 - x][y];
+        }
+      }
+      return result;
+    }
+
+    function collides(piece, offsetX = 0, offsetY = 0) {
+      const { matrix, pos } = piece;
+      for (let y = 0; y < matrix.length; y++) {
+        for (let x = 0; x < matrix[y].length; x++) {
+          if (!matrix[y][x]) continue;
+          const boardX = pos.x + x + offsetX;
+          const boardY = pos.y + y + offsetY;
+          if (boardX < 0 || boardX >= COLS || boardY >= ROWS) return true;
+          if (boardY >= 0 && board[boardY][boardX]) return true;
+        }
+      }
+      return false;
+    }
+
+    function merge(piece) {
+      piece.matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (!value) return;
+          const boardY = piece.pos.y + y;
+          if (boardY >= 0) board[boardY][piece.pos.x + x] = { type: piece.type, fade: 1 };
+        });
+      });
+    }
+
+    function spawnPiece() {
+      const type = nextQueue.shift();
+      if (nextQueue.length <= 5) refillBag();
+      activePiece = {
+        type,
+        matrix: TETROMINOES[type].map(row => row.slice()),
+        pos: { x: Math.floor(COLS / 2) - 2, y: -HIDDEN_ROWS }
+      };
+      canHold = true;
+      if (collides(activePiece)) {
+        gameOver();
+      }
+    }
+
+    function refillBag() {
+      const bag = Object.keys(TETROMINOES);
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+      nextQueue.push(...bag);
+    }
+
+    function clearLines() {
+      const rowsToRemove = [];
+      for (let y = 0; y < ROWS; y++) {
+        if (board[y].every(cell => cell)) rowsToRemove.push(y);
+      }
+      if (!rowsToRemove.length) {
+        combo = 0;
+        comboIndicator.textContent = '';
+        comboEl.textContent = '0';
+        return;
+      }
+
+      combo += 1;
+      comboEl.textContent = String(combo);
+      comboIndicator.textContent = `COMBO x${combo}`;
+      comboIndicator.classList.add('flash');
+      setTimeout(() => comboIndicator.classList.remove('flash'), 260);
+
+      rowsToRemove.forEach(rowIndex => {
+        spawnParticlesForRow(rowIndex);
+      });
+
+      rowsToRemove.forEach(rowIndex => {
+        board.splice(rowIndex, 1);
+        board.unshift(Array(COLS).fill(null));
+      });
+
+      lines += rowsToRemove.length;
+      const baseScore = SCORE_TABLE[rowsToRemove.length] || 0;
+      const comboBonus = combo > 1 ? Math.floor(25 * (combo - 1)) : 0;
+      const b2bEligible = rowsToRemove.length === 4;
+      if (b2bEligible) {
+        score += baseScore * (backToBack ? 1.5 : 1);
+        tetrisSfx.currentTime = 0;
+        tetrisSfx.play().catch(() => {});
+      } else {
+        score += baseScore;
+        lineSfx.currentTime = 0;
+        lineSfx.play().catch(() => {});
+      }
+      score += comboBonus;
+      backToBack = b2bEligible ? true : false;
+
+      const newLevel = 1 + Math.floor(lines / 10);
+      if (newLevel !== level) {
+        level = newLevel;
+        dropInterval = Math.max(120, GRAVITY_MS - (level - 1) * 70);
+        statusEl.textContent = `Level ${level}`;
+        statusEl.classList.add('flash');
+        setTimeout(() => statusEl.classList.remove('flash'), 260);
+      }
+
+      updateHUD();
+    }
+
+    function spawnParticlesForRow(rowIndex) {
+      const y = rowIndex * BLOCK_SIZE;
+      for (let x = 0; x < COLS; x++) {
+        const originX = x * BLOCK_SIZE + BLOCK_SIZE / 2;
+        for (let i = 0; i < 6; i++) {
+          particles.push({
+            x: originX + (Math.random() - 0.5) * 28,
+            y: y + (Math.random() - 0.5) * 18,
+            vx: (Math.random() - 0.5) * 0.7,
+            vy: -Math.random() * 0.9,
+            life: 1,
+            hue: 180 + Math.random() * 120
+          });
+        }
+      }
+    }
+
+    function holdCurrentPiece() {
+      if (!canHold || !activePiece) return;
+      const swappingPiece = activePiece.type;
+      if (holdPiece) {
+        activePiece = {
+          type: holdPiece,
+          matrix: TETROMINOES[holdPiece].map(row => row.slice()),
+          pos: { x: Math.floor(COLS / 2) - 2, y: -HIDDEN_ROWS }
+        };
+        holdPiece = swappingPiece;
+      } else {
+        holdPiece = swappingPiece;
+        spawnPiece();
+      }
+      canHold = false;
+      drawHold();
+      playMoveSfx();
+    }
+
+    function attemptMove(offsetX) {
+      if (!activePiece) return;
+      if (!collides(activePiece, offsetX, 0)) {
+        activePiece.pos.x += offsetX;
+        playMoveSfx();
+      }
+    }
+
+    function rotateActive(dir) {
+      if (!activePiece) return;
+      const rotated = rotate(activePiece.matrix, dir);
+      const clone = { ...activePiece, matrix: rotated };
+      const offsets = [0, -1, 1, -2, 2];
+      for (const offset of offsets) {
+        if (!collides(clone, offset, 0)) {
+          activePiece.matrix = rotated;
+          activePiece.pos.x += offset;
+          playMoveSfx();
+          return;
+        }
+      }
+    }
+
+    function softDrop() {
+      if (!activePiece) return;
+      if (!collides(activePiece, 0, 1)) {
+        activePiece.pos.y += 1;
+        score += 1;
+      } else {
+        lockPiece();
+      }
+    }
+
+    function hardDrop() {
+      if (!activePiece) return;
+      let distance = 0;
+      while (!collides(activePiece, 0, 1)) {
+        activePiece.pos.y += 1;
+        distance += 1;
+      }
+      score += distance * 2;
+      lockPiece();
+    }
+
+    function lockPiece() {
+      merge(activePiece);
+      lockSfx.currentTime = 0;
+      lockSfx.play().catch(() => {});
+      clearLines();
+      spawnPiece();
+      drawNext();
+      dropCounter = 0;
+      canHold = true;
+      updateHUD();
+    }
+
+    function updateHUD() {
+      scoreEl.textContent = score.toLocaleString();
+      linesEl.textContent = lines;
+      levelEl.textContent = level;
+      comboEl.textContent = combo;
+      b2bEl.textContent = backToBack ? 'ON' : '-';
+    }
+
+    function drawBoard() {
+      ctx.clearRect(0, 0, playfield.width, playfield.height);
+      const gradient = ctx.createLinearGradient(0, 0, playfield.width, playfield.height);
+      gradient.addColorStop(0, 'rgba(12, 18, 46, 0.35)');
+      gradient.addColorStop(1, 'rgba(28, 12, 54, 0.35)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, playfield.width, playfield.height);
+
+      for (let y = HIDDEN_ROWS; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const cell = board[y][x];
+          if (!cell) continue;
+          drawCell(x, y - HIDDEN_ROWS, COLORS[cell.type], cell.fade);
+          cell.fade = Math.max(0.75, cell.fade - 0.01);
+        }
+      }
+    }
+
+    function drawCell(x, y, color, intensity = 1) {
+      const px = x * BLOCK_SIZE;
+      const py = y * BLOCK_SIZE;
+      const gradient = ctx.createRadialGradient(
+        px + BLOCK_SIZE / 2,
+        py + BLOCK_SIZE / 2,
+        6,
+        px + BLOCK_SIZE / 2,
+        py + BLOCK_SIZE / 2,
+        BLOCK_SIZE / 1.2
+      );
+      gradient.addColorStop(0, adjustAlpha(color, 0.95 * intensity));
+      gradient.addColorStop(1, adjustAlpha(color, 0.2 * intensity));
+      ctx.fillStyle = gradient;
+      ctx.fillRect(px + 2, py + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+      ctx.lineWidth = 1.4;
+      ctx.strokeRect(px + 2, py + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4);
+    }
+
+    function adjustAlpha(hex, alpha) {
+      const bigint = parseInt(hex.slice(1), 16);
+      const r = (bigint >> 16) & 255;
+      const g = (bigint >> 8) & 255;
+      const b = bigint & 255;
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function drawPiece(piece) {
+      piece.matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (!value) return;
+          const drawY = piece.pos.y + y - HIDDEN_ROWS;
+          if (drawY < 0) return;
+          drawCell(piece.pos.x + x, drawY, COLORS[piece.type]);
+        });
+      });
+    }
+
+    function drawGhost(piece) {
+      const ghost = {
+        ...piece,
+        matrix: piece.matrix,
+        pos: { x: piece.pos.x, y: piece.pos.y }
+      };
+      while (!collides(ghost, 0, 1)) ghost.pos.y += 1;
+      const opacityColor = adjustAlpha(COLORS[ghost.type], 0.18);
+      ghost.matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (!value) return;
+          const drawY = ghost.pos.y + y - HIDDEN_ROWS;
+          if (drawY < 0) return;
+          const px = (ghost.pos.x + x) * BLOCK_SIZE;
+          const py = drawY * BLOCK_SIZE;
+          ctx.strokeStyle = opacityColor;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(px + 4, py + 4, BLOCK_SIZE - 8, BLOCK_SIZE - 8);
+        });
+      });
+    }
+
+    function drawParticles(delta) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      particles = particles.filter(p => {
+        p.x += p.vx * delta * 0.1;
+        p.y += p.vy * delta * 0.1;
+        p.vy += 0.002 * delta;
+        p.life -= 0.0025 * delta;
+        if (p.life <= 0) return false;
+        ctx.fillStyle = `hsla(${p.hue}, 80%, 64%, ${p.life})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2);
+        ctx.fill();
+        return true;
+      });
+      ctx.restore();
+    }
+
+    function drawNext() {
+      nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+      const preview = nextQueue.slice(0, 3);
+      preview.forEach((type, index) => {
+        const matrix = TETROMINOES[type];
+        const size = matrix.length;
+        const scale = BLOCK_SIZE * 0.65;
+        const offsetX = 40 - (size * scale) / 2;
+        const offsetY = 20 + index * 50;
+        drawMiniMatrix(nextCtx, matrix, offsetX, offsetY, scale, COLORS[type]);
+      });
+    }
+
+    function drawHold() {
+      holdCtx.clearRect(0, 0, holdCanvas.width, holdCanvas.height);
+      if (!holdPiece) return;
+      drawMiniMatrix(
+        holdCtx,
+        TETROMINOES[holdPiece],
+        40,
+        40,
+        BLOCK_SIZE * 0.75,
+        COLORS[holdPiece]
+      );
+    }
+
+    function drawMiniMatrix(context, matrix, offsetX, offsetY, size, color) {
+      matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (!value) return;
+          const px = offsetX + x * size;
+          const py = offsetY + y * size;
+          const gradient = context.createRadialGradient(
+            px + size / 2,
+            py + size / 2,
+            size * 0.2,
+            px + size / 2,
+            py + size / 2,
+            size
+          );
+          gradient.addColorStop(0, adjustAlpha(color, 0.9));
+          gradient.addColorStop(1, adjustAlpha(color, 0.25));
+          context.fillStyle = gradient;
+          context.fillRect(px, py, size, size);
+          context.strokeStyle = 'rgba(255, 255, 255, 0.32)';
+          context.lineWidth = 1;
+          context.strokeRect(px + 1, py + 1, size - 2, size - 2);
+        });
+      });
+    }
+
+    function playMoveSfx() {
+      moveSfx.currentTime = 0;
+      moveSfx.play().catch(() => {});
+    }
+
+    function handleKeydown(event) {
+      if (event.repeat) return;
+      switch (event.key) {
+        case KEY.LEFT:
+          attemptMove(-1);
+          break;
+        case KEY.RIGHT:
+          attemptMove(1);
+          break;
+        case KEY.DOWN:
+          fastDrop = true;
+          break;
+        case KEY.UP:
+        case KEY.Z:
+          rotateActive(-1);
+          break;
+        case KEY.X:
+          rotateActive(1);
+          break;
+        case KEY.SPACE:
+          event.preventDefault();
+          hardDrop();
+          break;
+        case KEY.SHIFT:
+        case KEY.C:
+          holdCurrentPiece();
+          break;
+        case KEY.ENTER:
+          if (!isRunning) {
+            startGame();
+          } else {
+            resetGame();
+          }
+          break;
+      }
+    }
+
+    function handleKeyup(event) {
+      if (event.key === KEY.DOWN) fastDrop = false;
+    }
+
+    function drop() {
+      if (!activePiece) return;
+      if (!collides(activePiece, 0, 1)) {
+        activePiece.pos.y += 1;
+      } else {
+        lockPiece();
+      }
+      dropCounter = 0;
+    }
+
+    function update(time = 0) {
+      if (!isRunning) return;
+      const delta = time - lastTime;
+      lastTime = time;
+      dropCounter += delta;
+
+      const interval = fastDrop ? FAST_DROP_MS : dropInterval;
+      if (dropCounter > interval) drop();
+
+      drawBoard();
+      if (activePiece) {
+        drawGhost(activePiece);
+        drawPiece(activePiece);
+      }
+      drawParticles(delta);
+
+      requestAnimationFrame(update);
+    }
+
+    function startGame() {
+      resetGame();
+      isRunning = true;
+      statusEl.textContent = 'RUN';
+      requestAnimationFrame(update);
+    }
+
+    function resetGame() {
+      board = createBoard();
+      nextQueue = [];
+      refillBag();
+      refillBag();
+      particles = [];
+      holdPiece = null;
+      drawHold();
+      spawnPiece();
+      drawNext();
+      score = 0;
+      lines = 0;
+      level = 1;
+      combo = 0;
+      backToBack = false;
+      dropInterval = GRAVITY_MS;
+      dropCounter = 0;
+      fastDrop = false;
+      lastTime = 0;
+      statusEl.textContent = 'RUN';
+      comboIndicator.textContent = '';
+      updateHUD();
+      isRunning = true;
+      requestAnimationFrame(update);
+    }
+
+    function gameOver() {
+      isRunning = false;
+      statusEl.textContent = 'GAME OVER';
+      statusEl.classList.add('flash');
+      setTimeout(() => statusEl.classList.remove('flash'), 800);
+    }
+
+    window.addEventListener('keydown', handleKeydown);
+    window.addEventListener('keyup', handleKeyup);
+
+    drawBoard();
+    statusEl.textContent = 'Press Enter';
+  </script>
+</body>
+</html>
