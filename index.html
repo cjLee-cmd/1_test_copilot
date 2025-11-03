@@ -31,6 +31,7 @@
         0 0 60px #e60073,
         0 0 70px #e60073;
       animation: pulse 2s ease-in-out infinite;
+      position: relative;
     }
 
     @keyframes pulse {
@@ -102,6 +103,77 @@
       }
     }
 
+    /* 스파클링 효과 */
+    .sparkle {
+      position: absolute;
+      pointer-events: none;
+      width: 4px;
+      height: 4px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.8);
+      animation: sparkle-animation 1.5s ease-in-out infinite;
+    }
+
+    @keyframes sparkle-animation {
+      0%, 100% {
+        opacity: 0;
+        transform: scale(0);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* 떠다니는 스파클 */
+    .floating-sparkle {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 0 10px 3px rgba(255, 255, 255, 0.9);
+      animation: float-sparkle 4s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes float-sparkle {
+      0%, 100% {
+        transform: translateY(0) translateX(0) scale(0.5);
+        opacity: 0.3;
+      }
+      50% {
+        transform: translateY(-30px) translateX(10px) scale(1);
+        opacity: 1;
+      }
+    }
+
+    /* 반짝이는 별 효과 */
+    @keyframes twinkle {
+      0%, 100% {
+        opacity: 0.2;
+        transform: scale(0.8);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1.2);
+      }
+    }
+
+    .twinkle-star {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: white;
+      border-radius: 50%;
+      box-shadow:
+        0 0 4px 1px rgba(255, 255, 255, 0.8),
+        0 0 8px 2px rgba(255, 255, 255, 0.5);
+      animation: twinkle 2s ease-in-out infinite;
+      pointer-events: none;
+    }
+
     .combo-text {
       animation: combo-bounce 0.5s ease-out;
     }
@@ -130,33 +202,64 @@
         linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
       background-size: 20px 20px;
     }
+
+    /* 폭발 스파클 효과 */
+    @keyframes sparkle-burst {
+      0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--tx), var(--ty)) scale(0);
+        opacity: 0;
+      }
+    }
+
+    .sparkle-burst {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 0 10px 3px currentColor;
+      animation: sparkle-burst 0.8s ease-out forwards;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4 overflow-hidden">
+  <!-- Floating Sparkles Background -->
+  <div id="sparkle-background" class="fixed inset-0 pointer-events-none z-0"></div>
+
   <!-- Particle Container -->
   <div id="particle-container" class="fixed inset-0 pointer-events-none z-50"></div>
 
   <!-- Main Container -->
   <div class="relative z-10">
-    <!-- Title -->
-    <h1 class="game-title text-2xl md:text-4xl text-center mb-8 text-white">
-      TETRIS GAME
-    </h1>
+    <!-- Title with Sparkles -->
+    <div class="relative mb-8">
+      <h1 class="game-title text-2xl md:text-4xl text-center text-white">
+        TETRIS GAME
+      </h1>
+      <div id="title-sparkles" class="absolute inset-0 pointer-events-none"></div>
+    </div>
 
     <!-- Game Container -->
     <div class="flex flex-col lg:flex-row gap-6 items-start justify-center">
       <!-- Left Panel: Next & Hold -->
       <div class="flex flex-row lg:flex-col gap-4">
         <!-- Next Piece -->
-        <div class="neon-box bg-black/40 backdrop-blur-md rounded-2xl p-4 border-2 border-cyan-400">
+        <div class="neon-box bg-black/40 backdrop-blur-md rounded-2xl p-4 border-2 border-cyan-400 relative overflow-hidden">
           <h3 class="text-cyan-300 text-sm font-bold mb-2 text-center">NEXT</h3>
           <canvas id="nextCanvas" width="120" height="120" class="rounded-lg bg-black/50"></canvas>
+          <div class="sparkle-container absolute inset-0 pointer-events-none"></div>
         </div>
 
         <!-- Hold Piece -->
-        <div class="neon-box bg-black/40 backdrop-blur-md rounded-2xl p-4 border-2 border-purple-400">
+        <div class="neon-box bg-black/40 backdrop-blur-md rounded-2xl p-4 border-2 border-purple-400 relative overflow-hidden">
           <h3 class="text-purple-300 text-sm font-bold mb-2 text-center">HOLD</h3>
           <canvas id="holdCanvas" width="120" height="120" class="rounded-lg bg-black/50"></canvas>
+          <div class="sparkle-container absolute inset-0 pointer-events-none"></div>
         </div>
       </div>
 
@@ -179,7 +282,7 @@
       <!-- Right Panel: Score & Controls -->
       <div class="space-y-4">
         <!-- Score Panel -->
-        <div class="neon-box bg-black/40 backdrop-blur-md rounded-2xl p-6 border-2 border-yellow-400 min-w-[200px]">
+        <div class="neon-box bg-black/40 backdrop-blur-md rounded-2xl p-6 border-2 border-yellow-400 min-w-[200px] relative overflow-hidden">
           <h3 class="text-yellow-300 text-lg font-bold mb-4 text-center">SCORE</h3>
           <div class="space-y-3 text-white">
             <div class="flex justify-between">
@@ -199,11 +302,13 @@
               <span id="combo" class="score-glow text-pink-400 font-bold">0</span>
             </div>
           </div>
+          <div class="sparkle-container absolute inset-0 pointer-events-none"></div>
         </div>
 
         <!-- Combo Display -->
-        <div id="comboDisplay" class="hidden neon-box bg-gradient-to-r from-pink-500 to-purple-500 rounded-2xl p-4 text-center">
+        <div id="comboDisplay" class="hidden neon-box bg-gradient-to-r from-pink-500 to-purple-500 rounded-2xl p-4 text-center relative overflow-hidden">
           <p class="combo-text text-white font-bold text-2xl">🔥 COMBO x<span id="comboCount">0</span> 🔥</p>
+          <div class="sparkle-container absolute inset-0 pointer-events-none"></div>
         </div>
 
         <!-- Controls -->
@@ -222,8 +327,9 @@
 
         <!-- Start Button -->
         <button id="startBtn" onclick="startGame()"
-                class="btn-glow w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-4 rounded-full font-bold text-lg">
+                class="btn-glow w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-4 rounded-full font-bold text-lg relative overflow-hidden">
           START GAME
+          <div class="sparkle-container absolute inset-0 pointer-events-none"></div>
         </button>
       </div>
     </div>
@@ -276,6 +382,72 @@
     let isPaused = false;
     let isGameOver = false;
 
+    // Initialize sparkle background
+    function initSparkleBackground() {
+      const container = document.getElementById('sparkle-background');
+      for (let i = 0; i < 50; i++) {
+        const sparkle = document.createElement('div');
+        sparkle.className = 'floating-sparkle';
+        sparkle.style.left = Math.random() * 100 + '%';
+        sparkle.style.top = Math.random() * 100 + '%';
+        sparkle.style.animationDelay = Math.random() * 4 + 's';
+        sparkle.style.animationDuration = (3 + Math.random() * 3) + 's';
+        container.appendChild(sparkle);
+      }
+
+      // Add twinkling stars
+      for (let i = 0; i < 100; i++) {
+        const star = document.createElement('div');
+        star.className = 'twinkle-star';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.animationDelay = Math.random() * 2 + 's';
+        star.style.animationDuration = (1 + Math.random() * 2) + 's';
+        container.appendChild(star);
+      }
+    }
+
+    // Add sparkles to title
+    function initTitleSparkles() {
+      const container = document.getElementById('title-sparkles');
+      setInterval(() => {
+        const sparkle = document.createElement('div');
+        sparkle.className = 'sparkle';
+        sparkle.style.left = Math.random() * 100 + '%';
+        sparkle.style.top = Math.random() * 100 + '%';
+        sparkle.style.animationDuration = (1 + Math.random()) + 's';
+        container.appendChild(sparkle);
+        setTimeout(() => sparkle.remove(), 1500);
+      }, 200);
+    }
+
+    // Add sparkles to elements
+    function addSparkles(element) {
+      const rect = element.getBoundingClientRect();
+      for (let i = 0; i < 5; i++) {
+        const sparkle = document.createElement('div');
+        sparkle.className = 'sparkle';
+        sparkle.style.left = Math.random() * 100 + '%';
+        sparkle.style.top = Math.random() * 100 + '%';
+        element.appendChild(sparkle);
+        setTimeout(() => sparkle.remove(), 1500);
+      }
+    }
+
+    // Periodically add sparkles to UI elements
+    setInterval(() => {
+      document.querySelectorAll('.sparkle-container').forEach(container => {
+        if (Math.random() > 0.5) {
+          const sparkle = document.createElement('div');
+          sparkle.className = 'sparkle';
+          sparkle.style.left = Math.random() * 100 + '%';
+          sparkle.style.top = Math.random() * 100 + '%';
+          container.appendChild(sparkle);
+          setTimeout(() => sparkle.remove(), 1500);
+        }
+      });
+    }, 300);
+
     // Create random piece
     function createPiece() {
       const pieces = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
@@ -310,6 +482,17 @@
       ctx.shadowColor = color;
       ctx.strokeRect(x + 1, y + 1, BLOCK_SIZE - 2, BLOCK_SIZE - 2);
       ctx.shadowBlur = 0;
+
+      // Add random sparkle to blocks
+      if (Math.random() > 0.95) {
+        ctx.fillStyle = 'white';
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = 'white';
+        const sparkleX = x + Math.random() * BLOCK_SIZE;
+        const sparkleY = y + Math.random() * BLOCK_SIZE;
+        ctx.fillRect(sparkleX, sparkleY, 2, 2);
+        ctx.shadowBlur = 0;
+      }
     }
 
     // Draw piece
@@ -448,6 +631,7 @@
         currentPiece.shape = previousShape;
       } else {
         createParticles(currentPiece.x * BLOCK_SIZE + 15, currentPiece.y * BLOCK_SIZE + 15, currentPiece.color);
+        createSparkleBurst(currentPiece.x * BLOCK_SIZE + 15, currentPiece.y * BLOCK_SIZE + 15, currentPiece.color);
       }
     }
 
@@ -480,6 +664,7 @@
       }
       score += dropDistance * 2;
       createParticles(currentPiece.x * BLOCK_SIZE + 15, currentPiece.y * BLOCK_SIZE + 15, currentPiece.color);
+      createSparkleBurst(currentPiece.x * BLOCK_SIZE + 15, currentPiece.y * BLOCK_SIZE + 15, currentPiece.color);
       merge();
       clearLines();
       spawnPiece();
@@ -503,6 +688,7 @@
       canHold = false;
       drawHold();
       createParticles(150, 100, '#b800ff');
+      createSparkleBurst(150, 100, '#b800ff');
     }
 
     // Clear lines
@@ -510,9 +696,10 @@
       let linesCleared = 0;
       for (let y = ROWS - 1; y >= 0; y--) {
         if (board[y].every(cell => cell !== 0)) {
-          // Line clear animation
+          // Line clear animation with extra sparkles
           for (let x = 0; x < COLS; x++) {
             createParticles(x * BLOCK_SIZE + 15, y * BLOCK_SIZE + 15, board[y][x]);
+            createSparkleBurst(x * BLOCK_SIZE + 15, y * BLOCK_SIZE + 15, board[y][x]);
           }
 
           board.splice(y, 1);
@@ -543,6 +730,14 @@
           dropInterval = Math.max(100, 1000 - (level - 1) * 100);
           canvas.classList.add('shake');
           setTimeout(() => canvas.classList.remove('shake'), 300);
+          // Extra sparkles on level up
+          for (let i = 0; i < 20; i++) {
+            createSparkleBurst(
+              Math.random() * canvas.width,
+              Math.random() * canvas.height,
+              '#ffff00'
+            );
+          }
         }
 
         updateScore();
@@ -584,6 +779,31 @@
         container.appendChild(particle);
 
         setTimeout(() => particle.remove(), 1000);
+      }
+    }
+
+    // Create sparkle burst effect
+    function createSparkleBurst(x, y, color) {
+      const container = document.getElementById('particle-container');
+      const rect = canvas.getBoundingClientRect();
+
+      for (let i = 0; i < 12; i++) {
+        const angle = (Math.PI * 2 * i) / 12;
+        const distance = 50 + Math.random() * 30;
+        const tx = Math.cos(angle) * distance;
+        const ty = Math.sin(angle) * distance;
+
+        const sparkle = document.createElement('div');
+        sparkle.className = 'sparkle-burst';
+        sparkle.style.left = (rect.left + x) + 'px';
+        sparkle.style.top = (rect.top + y) + 'px';
+        sparkle.style.color = color;
+        sparkle.style.setProperty('--tx', tx + 'px');
+        sparkle.style.setProperty('--ty', ty + 'px');
+
+        container.appendChild(sparkle);
+
+        setTimeout(() => sparkle.remove(), 800);
       }
     }
 
@@ -648,6 +868,17 @@
 
       lastTime = performance.now();
       gameLoop = requestAnimationFrame(update);
+
+      // Start sparkles
+      for (let i = 0; i < 30; i++) {
+        setTimeout(() => {
+          createSparkleBurst(
+            Math.random() * canvas.width,
+            Math.random() * canvas.height,
+            '#00ffff'
+          );
+        }, i * 50);
+      }
     }
 
     // Restart game
@@ -709,6 +940,10 @@
         drawBoard();
       }
     });
+
+    // Initialize effects
+    initSparkleBackground();
+    initTitleSparkles();
 
     // Initial draw
     drawBoard();
